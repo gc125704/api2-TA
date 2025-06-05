@@ -3,7 +3,12 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const mongoose = require("mongoose");
+const { ApolloServer } = require('apollo-server-express');
 require("dotenv").config();
+
+// Importar schema e resolvers do GraphQL
+const typeDefs = require('./graphql/typeDefs');
+const resolvers = require('./graphql/resolvers');
 
 //criar a conexao com o mongodb
 const mongoUrl = process.env.MONGO_URL;
@@ -37,10 +42,26 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Configuração do Apollo Server
+const server = new ApolloServer({
+    typeDefs,
+    resolvers,
+    context: ({ req }) => ({
+    })
+});
+
+// Iniciar o Apollo Server
+async function startApolloServer() {
+    await server.start();
+    server.applyMiddleware({ app });
+}
+
+startApolloServer();
+
 // Rotas
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
-app.use('/api/ndvi-maps', ndviMapsRouter);
+app.use('/ndvi-maps', ndviMapsRouter);
 
 // Tratamento de erros
 app.use((err, req, res, next) => {

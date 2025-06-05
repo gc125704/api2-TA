@@ -3,7 +3,8 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const NDVIMap = require('../models/NDVIMap');
+const mongoose = require('mongoose');
+const NDVIMap = require('../models/ndviMap');
 
 // Configuração do multer para processar o arquivo em memória
 const upload = multer({
@@ -87,37 +88,133 @@ router.get('/:id', async (req, res) => {
 // Atualizar um mapa NDVI
 router.put('/:id', upload.single('file'), async (req, res) => {
     try {
-        const updates = {
-            name: req.body.name,
-            description: req.body.description,
-            captureDate: req.body.captureDate,
-            metadata: {
-                coordinates: JSON.parse(req.body.coordinates || '{}'),
-                resolution: req.body.resolution
+        console.log('ID recebido:', req.params.id);
+        console.log('Body recebido:', req.body);
+        console.log('Arquivo recebido:', req.file ? 'Sim' : 'Não');
+        
+        // Verificar se o ID é válido
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ error: 'ID inválido' });
+        }
+
+        // Função para extrair coordenadas de diferentes formatos
+        const extractCoordinates = (body) => {
+            let coordinates = {};
+            
+            // Método 1: coordinates como string JSON
+            if (body.coordinates) {
+                try {
+                    coordinates = JSON.parse(body.coordinates);
+                } catch (e) {
+                    console.log('Erro ao parsear coordinates JSON:', e);
+                }
             }
+            
+            // Método 2: campos separados com prefixo metadata[coordinates]
+            const coordFields = ['north', 'south', 'east', 'west'];
+            coordFields.forEach(field => {
+                const fieldKey = `metadata[coordinates][${field}]`;
+                if (body[fieldKey]) {
+                    coordinates[field] = parseFloat(body[fieldKey]);
+                }
+            });
+            
+            // Método 3: campos diretos (para facilitar os testes)
+            coordFields.forEach(field => {
+                if (body[field] && !coordinates[field]) {
+                    coordinates[field] = parseFloat(body[field]);
+                }
+            });
+            
+            return coordinates;
         };
 
-        // Se um novo arquivo foi enviado, atualiza o fileData e fileType
+        // Extrair coordenadas
+        const coordinates = extractCoordinates(req.body);
+        console.log('Coordenadas extraídas:', coordinates);
+
+        // Preparar objeto de atualização
+        const updates = {};
+        
+        // Campos básicos
+        if (req.body.name) updates.name = req.body.name;
+        if (req.body.description) updates.description = req.body.description;
+        if (req.body.captureDate) updates.captureDate = req.body.captureDate;
+        
+        // Metadata
+        if (Object.keys(coordinates).length > 0 || req.body.resolution || req.body['metadata[resolution]'] || req.body['metadata[format]']) {
+            updates.metadata = {};
+            
+            if (Object.keys(coordinates).length > 0) {
+                updates.metadata.coordinates = coordinates;
+            }
+            
+            if (req.body.resolution || req.body['metadata[resolution]']) {
+                updates.metadata.resolution = req.body.resolution || req.body['metadata[resolution]'];
+            }
+            
+            if (req.body['metadata[format]']) {
+                updates.metadata.format = req.body['metadata[format]'];
+            }
+        }
+
+        // Se um novo arquivo foi enviado
         if (req.file) {
             updates.fileData = req.file.buffer;
             updates.fileType = req.file.mimetype;
+            console.log('Novo arquivo será salvo:', req.file.mimetype);
         }
 
-        const map = await NDVIMap.findByIdAndUpdate(
-            req.params.id,
-            updates,
-            { new: true, runValidators: true }
-        );
+        console.log('Objeto de updates final:', { ...updates, fileData: updates.fileData ? '[Buffer]' : undefined });
 
-        if (!map) {
+        // Verificar se o mapa existe antes de tentar atualizar
+        const existingMap = await NDVIMap.findById(req.params.id);
+        if (!existingMap) {
             return res.status(404).json({ error: 'Mapa não encontrado' });
         }
 
-        const responseMap = map.toObject();
+        // Realizar a atualização
+        const updatedMap = await NDVIMap.findByIdAndUpdate(
+            req.params.id,
+            updates,
+            { 
+                new: true, 
+                runValidators: true,
+                upsert: false
+            }
+        ).populate('uploadedBy', 'name email');
+
+        // Preparar resposta sem o buffer
+        const responseMap = updatedMap.toObject();
         delete responseMap.fileData;
-        res.json(responseMap);
+        
+        console.log('Mapa atualizado com sucesso');
+        res.json({
+            message: 'Mapa atualizado com sucesso',
+            data: responseMap
+        });
+        
     } catch (error) {
-        res.status(400).json({ error: error.message });
+        console.error('Erro na atualização:', error);
+        
+        // Tratamento específico de erros
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ 
+                error: 'Dados inválidos',
+                details: error.message 
+            });
+        }
+        
+        if (error.name === 'CastError') {
+            return res.status(400).json({ 
+                error: 'ID do mapa inválido' 
+            });
+        }
+        
+        res.status(500).json({ 
+            error: 'Erro interno do servidor',
+            message: error.message 
+        });
     }
 });
 
