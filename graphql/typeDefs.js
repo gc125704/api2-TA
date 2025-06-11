@@ -25,7 +25,7 @@ const typeDefs = gql`
     uploadedBy: String!
     createdAt: String!
     updatedAt: String!
-    # fileData não é exposto diretamente por questões de performance
+    fileData: String! # Retorna o buffer como base64
   }
 
   input CoordinatesInput {

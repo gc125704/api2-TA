@@ -89,6 +89,30 @@ const resolvers = {
     }
   },
 
+  // Resolver para o tipo NDVIMap
+  NDVIMap: {
+    // Converter fileData de Buffer para base64
+    fileData: (parent) => {
+      if (parent.fileData) {
+        return parent.fileData.toString('base64');
+      }
+      return null;
+    },
+    
+    // Converter datas para string ISO
+    captureDate: (parent) => {
+      return parent.captureDate.toISOString();
+    },
+    
+    createdAt: (parent) => {
+      return parent.createdAt.toISOString();
+    },
+    
+    updatedAt: (parent) => {
+      return parent.updatedAt.toISOString();
+    }
+  },
+
   Mutation: {
     // Criar novo mapa NDVI
     createNDVIMap: async (_, { input, fileData }) => {
