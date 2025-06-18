@@ -43,10 +43,20 @@ const resolvers = {
     },
 
     // Buscar mapas por usuário
-    ndviMapsByUser: async (_, { uploadedBy }) => {
+    ndviMapsByUser: async (_, { uploadedBy, limit = 0, offset = 0, sortBy = 'createdAt' }) => {
       try {
-        const maps = await NDVIMap.find({ uploadedBy })
-          .sort({ createdAt: -1 });
+        const sortOrder = sortBy.startsWith('-') ? -1 : 1;
+        const sortField = sortBy.replace('-', '');
+        
+        const query = NDVIMap.find({ uploadedBy })
+          .sort({ [sortField]: sortOrder })
+          .skip(offset);
+          
+        if (limit !== 0) {
+          query.limit(limit);
+        }
+        
+        const maps = await query;
         return maps;
       } catch (error) {
         throw new Error(`Erro ao buscar mapas do usuário: ${error.message}`);

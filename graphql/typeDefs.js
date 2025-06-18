@@ -66,7 +66,7 @@ const typeDefs = gql`
     ndviMap(id: ID!): NDVIMap
     
     # Buscar mapas por filtros
-    ndviMapsByUser(uploadedBy: String!): [NDVIMap!]!
+    ndviMapsByUser(uploadedBy: String!,limit: Int, offset: Int, sortBy: String): [NDVIMap!]!
     ndviMapsByDateRange(startDate: String!, endDate: String!): [NDVIMap!]!
     
     # Obter o arquivo (retorna base64 ou URL para download)
