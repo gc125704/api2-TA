@@ -37,8 +37,8 @@ app.use((req, res, next) => {
 });
 
 app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: false, limit: '20mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -47,13 +47,23 @@ const server = new ApolloServer({
     typeDefs,
     resolvers,
     context: ({ req }) => ({
-    })
+    }),
+    cors: {
+        origin: '*',
+        credentials: true
+    }
 });
 
 // Iniciar o Apollo Server
 async function startApolloServer() {
     await server.start();
-    server.applyMiddleware({ app });
+    server.applyMiddleware({ 
+        app,
+        cors: {
+            origin: '*',
+            credentials: true
+        }
+    });
 }
 
 startApolloServer();

@@ -22,10 +22,15 @@ const typeDefs = gql`
     captureDate: String!
     fileType: String!
     metadata: Metadata!
-    uploadedBy: String!
+    propriedadeId: Int!
     createdAt: String!
     updatedAt: String!
     fileData: String! # Retorna o buffer como base64
+  }
+
+  type NDVIMapResult {
+    totalCount: Int!
+    items: [NDVIMap!]!
   }
 
   input CoordinatesInput {
@@ -47,7 +52,7 @@ const typeDefs = gql`
     captureDate: String!
     fileType: String!
     metadata: MetadataInput!
-    uploadedBy: String!
+    propriedadeId: Int!
   }
 
   input NDVIMapUpdateInput {
@@ -60,25 +65,31 @@ const typeDefs = gql`
 
   type Query {
     # Listar todos os mapas NDVI com paginação opcional
-    ndviMaps(limit: Int, offset: Int, sortBy: String): [NDVIMap!]!
+    ndviMaps(propriedadeId: Int, limit: Int, offset: Int, sortBy: String): [NDVIMap!]!
+    
+    # Buscar mapas por uma lista de propriedades
+    ndviMapsByPropriedades(propriedadeIds: [Int!], limit: Int, offset: Int, sortBy: String): NDVIMapResult!
+    
+    # Novo endpoint para contar mapas por lista de propriedades
+    ndviMapsCountByPropriedades(propriedadeIds: [Int!]): Int!
     
     # Buscar um mapa específico por ID
-    ndviMap(id: ID!): NDVIMap
+    ndviMap(id: ID!, propriedadeId: Int!): NDVIMap
     
     # Buscar mapas por filtros
-    ndviMapsByUser(uploadedBy: String!): [NDVIMap!]!
-    ndviMapsByDateRange(startDate: String!, endDate: String!): [NDVIMap!]!
+    ndviMapsByUser(propriedadeId: Int!, limit: Int, offset: Int, sortBy: String): [NDVIMap!]!
+    ndviMapsByDateRange(startDate: String!, endDate: String!, propriedadeId: Int!, limit: Int, offset: Int, sortBy: String): [NDVIMap!]!
     
     # Obter o arquivo (retorna base64 ou URL para download)
-    ndviMapFile(id: ID!): String
+    ndviMapFile(id: ID!, propriedadeId: Int!): String
   }
 
   type Mutation {
     # Criar novo mapa NDVI
-    createNDVIMap(input: NDVIMapInput!, fileData: String!): NDVIMap!
+    createNDVIMap(input: NDVIMapInput!, fileData: String!, propriedadeId: Int!): NDVIMap!
     
     # Atualizar mapa existente
-    updateNDVIMap(id: ID!, input: NDVIMapUpdateInput!, fileData: String): NDVIMap!
+    updateNDVIMap(id: ID!, input: NDVIMapUpdateInput!, fileData: String, propriedadeId: Int!): NDVIMap!
     
     # Deletar mapa
     deleteNDVIMap(id: ID!): Boolean!

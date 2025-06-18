@@ -52,7 +52,7 @@ router.post('/', upload.single('file'), async (req, res) => {
 router.get('/', async (req, res) => {
     try {
         const maps = await NDVIMap.find()
-            .populate('uploadedBy', 'name email')
+            .populate('propriedadeId', 'name email')
             .sort({ createdAt: -1 });
         res.json(maps);
     } catch (error) {
@@ -64,7 +64,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const map = await NDVIMap.findById(req.params.id)
-            .populate('uploadedBy', 'name email');
+            .populate('propriedadeId', 'name email');
         if (!map) {
             return res.status(404).json({ error: 'Mapa não encontrado' });
         }
@@ -182,7 +182,7 @@ router.put('/:id', upload.single('file'), async (req, res) => {
                 runValidators: true,
                 upsert: false
             }
-        ).populate('uploadedBy', 'name email');
+        ).populate('propriedadeId', 'name email');
 
         // Preparar resposta sem o buffer
         const responseMap = updatedMap.toObject();

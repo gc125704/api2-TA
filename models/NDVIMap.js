@@ -40,8 +40,8 @@ const ndviMapSchema = new mongoose.Schema({
             enum: ['GeoTIFF', 'JPEG', 'PNG']
         }
     },
-    uploadedBy: {
-        type: String,
+    propriedadeId: {
+        type: Number,
         required: true
     },
     createdAt: {

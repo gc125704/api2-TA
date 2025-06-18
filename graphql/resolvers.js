@@ -4,12 +4,12 @@ const mongoose = require('mongoose');
 const resolvers = {
   Query: {
     // Listar todos os mapas com opções de paginação e ordenação
-    ndviMaps: async (_, { limit = 0, offset = 0, sortBy = 'createdAt' }) => {
+    ndviMaps: async (_, { propriedadeId, limit = 0, offset = 0, sortBy = 'createdAt' }) => {
       try {
         const sortOrder = sortBy.startsWith('-') ? -1 : 1;
         const sortField = sortBy.replace('-', '');
         
-        const query = NDVIMap.find()
+        const query = NDVIMap.find({ propriedadeId: Number(propriedadeId) })
           .sort({ [sortField]: sortOrder })
           .skip(offset);
           
@@ -25,13 +25,13 @@ const resolvers = {
     },
 
     // Buscar mapa por ID
-    ndviMap: async (_, { id }) => {
+    ndviMap: async (_, { id, propriedadeId }) => {
       try {
         if (!mongoose.Types.ObjectId.isValid(id)) {
           throw new Error('ID inválido');
         }
         
-        const map = await NDVIMap.findById(id);
+        const map = await NDVIMap.findOne({ _id: id, propriedadeId: Number(propriedadeId) });
         if (!map) {
           throw new Error('Mapa não encontrado');
         }
@@ -43,10 +43,20 @@ const resolvers = {
     },
 
     // Buscar mapas por usuário
-    ndviMapsByUser: async (_, { uploadedBy }) => {
+    ndviMapsByUser: async (_, { propriedadeId, limit = 0, offset = 0, sortBy = '-createdAt' }) => {
       try {
-        const maps = await NDVIMap.find({ uploadedBy })
-          .sort({ createdAt: -1 });
+        const sortOrder = sortBy.startsWith('-') ? -1 : 1;
+        const sortField = sortBy.replace('-', '');
+        
+        const query = NDVIMap.find({ propriedadeId: Number(propriedadeId) })
+          .sort({ [sortField]: sortOrder })
+          .skip(offset);
+          
+        if (limit !== 0) {
+          query.limit(limit);
+        }
+        
+        const maps = await query;
         return maps;
       } catch (error) {
         throw new Error(`Erro ao buscar mapas do usuário: ${error.message}`);
@@ -54,15 +64,26 @@ const resolvers = {
     },
 
     // Buscar mapas por intervalo de datas
-    ndviMapsByDateRange: async (_, { startDate, endDate }) => {
+    ndviMapsByDateRange: async (_, { startDate, endDate, propriedadeId, limit = 0, offset = 0, sortBy = '-captureDate' }) => {
       try {
-        const maps = await NDVIMap.find({
+        const sortOrder = sortBy.startsWith('-') ? -1 : 1;
+        const sortField = sortBy.replace('-', '');
+        
+        const query = NDVIMap.find({
           captureDate: {
             $gte: new Date(startDate),
             $lte: new Date(endDate)
-          }
-        }).sort({ captureDate: -1 });
+          },
+          propriedadeId: Number(propriedadeId)
+        })
+        .sort({ [sortField]: sortOrder })
+        .skip(offset);
         
+        if (limit !== 0) {
+          query.limit(limit);
+        }
+        
+        const maps = await query;
         return maps;
       } catch (error) {
         throw new Error(`Erro ao buscar mapas por data: ${error.message}`);
@@ -70,13 +91,13 @@ const resolvers = {
     },
 
     // Obter arquivo do mapa (retorna em base64)
-    ndviMapFile: async (_, { id }) => {
+    ndviMapFile: async (_, { id, propriedadeId }) => {
       try {
         if (!mongoose.Types.ObjectId.isValid(id)) {
           throw new Error('ID inválido');
         }
         
-        const map = await NDVIMap.findById(id);
+        const map = await NDVIMap.findOne({ _id: id, propriedadeId: Number(propriedadeId) });
         if (!map) {
           throw new Error('Mapa não encontrado');
         }
@@ -85,6 +106,48 @@ const resolvers = {
         return map.fileData.toString('base64');
       } catch (error) {
         throw new Error(`Erro ao obter arquivo: ${error.message}`);
+      }
+    },
+
+    ndviMapsByPropriedades: async (_, { propriedadeIds, limit = 0, offset = 0, sortBy = 'createdAt' }) => {
+      try {
+        const sortOrder = sortBy.startsWith('-') ? -1 : 1;
+        const sortField = sortBy.replace('-', '');
+
+        let queryObj = {};
+        if (propriedadeIds && propriedadeIds.length > 0) {
+          queryObj.propriedadeId = { $in: propriedadeIds.map(Number) };
+        }
+
+        // Buscar o total antes da paginação
+        const totalCount = await NDVIMap.countDocuments(queryObj);
+
+        const query = NDVIMap.find(queryObj)
+          .sort({ [sortField]: sortOrder })
+          .skip(offset);
+
+        if (limit !== 0) {
+          query.limit(limit);
+        }
+
+        const items = await query;
+        return { totalCount, items };
+      } catch (error) {
+        throw new Error(`Erro ao buscar mapas NDVI por propriedades: ${error.message}`);
+      }
+    },
+
+    // Novo endpoint para contar mapas por lista de propriedades
+    ndviMapsCountByPropriedades: async (_, { propriedadeIds }) => {
+      try {
+        let queryObj = {};
+        if (propriedadeIds && propriedadeIds.length > 0) {
+          queryObj.propriedadeId = { $in: propriedadeIds.map(Number) };
+        }
+        const count = await NDVIMap.countDocuments(queryObj);
+        return count;
+      } catch (error) {
+        throw new Error(`Erro ao contar mapas NDVI por propriedades: ${error.message}`);
       }
     }
   },
@@ -115,7 +178,7 @@ const resolvers = {
 
   Mutation: {
     // Criar novo mapa NDVI
-    createNDVIMap: async (_, { input, fileData }) => {
+    createNDVIMap: async (_, { input, fileData, propriedadeId }) => {
       try {
         // Converter base64 para Buffer
         const buffer = Buffer.from(fileData, 'base64');
@@ -123,7 +186,8 @@ const resolvers = {
         const ndviMap = new NDVIMap({
           ...input,
           fileData: buffer,
-          captureDate: new Date(input.captureDate)
+          captureDate: new Date(input.captureDate),
+          propriedadeId: Number(propriedadeId)
         });
         
         const savedMap = await ndviMap.save();
@@ -137,14 +201,14 @@ const resolvers = {
     },
 
     // Atualizar mapa existente
-    updateNDVIMap: async (_, { id, input, fileData }) => {
+    updateNDVIMap: async (_, { id, input, fileData, propriedadeId }) => {
       try {
         if (!mongoose.Types.ObjectId.isValid(id)) {
           throw new Error('ID inválido');
         }
 
-        // Verificar se o mapa existe
-        const existingMap = await NDVIMap.findById(id);
+        // Verificar se o mapa existe e pertence à propriedade
+        const existingMap = await NDVIMap.findOne({ _id: id, propriedadeId: Number(propriedadeId) });
         if (!existingMap) {
           throw new Error('Mapa não encontrado');
         }
@@ -184,17 +248,19 @@ const resolvers = {
     },
 
     // Deletar mapa
-    deleteNDVIMap: async (_, { id }) => {
+    deleteNDVIMap: async (_, { id}) => {
       try {
         if (!mongoose.Types.ObjectId.isValid(id)) {
           throw new Error('ID inválido');
         }
 
-        const deletedMap = await NDVIMap.findByIdAndDelete(id);
-        if (!deletedMap) {
+        // Verificar se o mapa existe e pertence à propriedade
+        const map = await NDVIMap.findOne({ _id: id });
+        if (!map) {
           throw new Error('Mapa não encontrado');
         }
-        
+
+        await NDVIMap.findByIdAndDelete(id);
         return true;
       } catch (error) {
         throw new Error(`Erro ao deletar mapa: ${error.message}`);
