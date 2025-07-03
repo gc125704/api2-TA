@@ -4,7 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
-const NDVIMap = require('../models/ndviMap');
+const NDVIMap = require('../models/NDVIMap');
 
 // Configuração do multer para processar o arquivo em memória
 const upload = multer({

@@ -1,4 +1,4 @@
-const NDVIMap = require('../models/ndviMap');
+const NDVIMap = require('../models/NDVIMap');
 const mongoose = require('mongoose');
 
 const resolvers = {

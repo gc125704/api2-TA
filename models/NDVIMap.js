@@ -60,4 +60,4 @@ ndviMapSchema.pre('save', function(next) {
     next();
 });
 
-module.exports = mongoose.model('NDVIMap', ndviMapSchema); 
+module.exports = mongoose.models.NDVIMap || mongoose.model('NDVIMap', ndviMapSchema); 
